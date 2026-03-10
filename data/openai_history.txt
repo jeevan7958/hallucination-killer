@@ -1,0 +1,12 @@
+OpenAI was founded in December 2015 by Sam Altman, Elon Musk, Greg Brockman, 
+Ilya Sutskever, and Wojciech Zaremba. The organization is headquartered in 
+San Francisco, California. OpenAI started as a non-profit research laboratory 
+with the mission to develop safe artificial intelligence.
+
+Elon Musk resigned from the OpenAI board in February 2018, citing potential 
+conflicts of interest with his work at Tesla. Despite his departure from the 
+board, OpenAI continued to grow rapidly.
+
+In 2019, OpenAI transitioned to a capped-profit model and received a one billion 
+dollar investment from Microsoft. This partnership allowed OpenAI to access 
+significant computing resources through Microsoft Azure.
