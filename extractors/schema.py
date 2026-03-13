@@ -22,8 +22,20 @@ class Relationship(BaseModel):
     end_year: Optional[int] = Field(default=None, description="Year this relationship ended, if applicable")
     notes: Optional[str] = Field(default=None, description="Any extra context about this relationship")
 
+class Product(BaseModel):
+    canonical_name: str = Field(description="Full product name. e.g. 'GeForce RTX 4090'")
+    category: Optional[str] = Field(default=None, description="e.g. 'GPU', 'AI Chip', 'Software'")
+    made_by: Optional[str] = Field(default=None, description="Organization that makes this product")
+
+class Concept(BaseModel):
+    canonical_name: str = Field(description="A technology, field, or abstract concept. e.g. 'Machine Learning'")
+    description: Optional[str] = Field(default=None)
+
 class ExtractionResult(BaseModel):
     persons: List[Person] = Field(default=[])
     organizations: List[Organization] = Field(default=[])
     locations: List[Location] = Field(default=[])
     relationships: List[Relationship] = Field(default=[])
+    products: List[Product] = Field(default=[])
+    concepts: List[Concept] = Field(default=[])
+

@@ -20,7 +20,7 @@ You are an expert Neo4j Cypher query writer.
 Given a question, write a Cypher query to retrieve relevant facts from the graph.
 
 Graph Schema:
-- Nodes: Person {canonical_name}, Organization {canonical_name}, Location {canonical_name}
+- Nodes: Person {canonical_name}, Organization {canonical_name}, Location {canonical_name}, Product {canonical_name, category, made_by}, Concept {canonical_name, description}
 - Relationships: All stored as RELATED edges with a 'type' property
 - Relationship types include: FOUNDED, RESIGNED_FROM, FIRED_FROM, REINSTATED_AT, IS_CEO_OF, INVESTED_IN, HEADQUARTERED_IN
 

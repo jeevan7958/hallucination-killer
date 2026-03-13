@@ -18,22 +18,18 @@ class GraphWriter:
 
     def write(self, result: ExtractionResult):
         with self.driver.session() as session:
-            # Write Persons
             for person in result.persons:
                 session.execute_write(self._merge_person, person)
-
-            # Write Organizations
             for org in result.organizations:
                 session.execute_write(self._merge_org, org)
-
-            # Write Locations
             for loc in result.locations:
                 session.execute_write(self._merge_location, loc)
-
-            # Write Relationships
+            for product in result.products:
+                session.execute_write(self._merge_product, product)
+            for concept in result.concepts:
+                session.execute_write(self._merge_concept, concept)
             for rel in result.relationships:
                 session.execute_write(self._merge_relationship, rel)
-
         print("[OK] Graph write complete.")
 
     @staticmethod
@@ -63,6 +59,24 @@ class GraphWriter:
         """, name=loc.canonical_name)
 
     @staticmethod
+    def _merge_product(tx, product):
+        tx.run("""
+            MERGE (p:Product {canonical_name: $name})
+            SET p.category = $category,
+                p.made_by = $made_by
+        """, name=product.canonical_name,
+             category=product.category,
+             made_by=product.made_by)
+
+    @staticmethod
+    def _merge_concept(tx, concept):
+        tx.run("""
+            MERGE (c:Concept {canonical_name: $name})
+            SET c.description = $description
+        """, name=concept.canonical_name,
+             description=concept.description)
+
+    @staticmethod
     def _merge_relationship(tx, rel):
         tx.run("""
             MATCH (source {canonical_name: $source})
@@ -77,39 +91,4 @@ class GraphWriter:
              year=rel.year,
              end_year=rel.end_year,
              notes=rel.notes)
-
-
-if __name__ == "__main__":
-    from extractors.entity_extractor import extract_entities
-
-    test_text = """
-    Elon Musk co-founded OpenAI in 2015 alongside Sam Altman and Greg Brockman.
-    The organization is headquartered in San Francisco, California.
-    Musk later resigned from the OpenAI board in 2018.
-    Sam Altman currently serves as CEO of OpenAI.
-    """
-
-    print("[1] Extracting entities...")
-    result = extract_entities(test_text)
-
-    print("[2] Writing to Neo4j...")
-    writer = GraphWriter()
-    writer.write(result)
-    writer.close()
-
-    print("[3] Verifying — querying Neo4j...")
-    driver = GraphDatabase.driver(URI, auth=(USER, PASSWORD))
-    with driver.session() as session:
-        persons = session.run("MATCH (p:Person) RETURN p.canonical_name").data()
-        rels = session.run("MATCH (a)-[r:RELATED]->(b) RETURN a.canonical_name, r.type, b.canonical_name").data()
-
-    print("\n--- PERSONS IN NEO4J ---")
-    for p in persons:
-        print(f"  {p['p.canonical_name']}")
-
-    print("\n--- RELATIONSHIPS IN NEO4J ---")
-    for r in rels:
-        print(f"  ({r['a.canonical_name']}) --[{r['r.type']}]--> ({r['b.canonical_name']})")
-
-    driver.close()
 

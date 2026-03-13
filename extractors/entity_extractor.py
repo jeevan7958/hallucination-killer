@@ -22,6 +22,9 @@ Rules:
 
 JSON format:
 {
+  "products": [{"canonical_name": "", "category": "", "made_by": ""}],
+  "concepts": [{"canonical_name": "", "description": ""}],
+{
   "persons": [{"canonical_name": "", "aliases": [], "description": ""}],
   "organizations": [{"canonical_name": "", "aliases": [], "industry": ""}],
   "locations": [{"canonical_name": ""}],

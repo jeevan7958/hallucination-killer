@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Hallucination Killer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    header h1 {
+  color: #ffffff;
+      font-size: 2rem;
+      color: #ffffff;
+      letter-spacing: 1px;
+    }
+
+    header p {
+      color: #888;
+      margin-top: 6px;
+      font-size: 0.95rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2a2d3a;
+      border-radius: 12px;
+      padding: 24px;
+    }
+
+    .card h2 {
+      font-size: 1rem;
+      color: #ffffff;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .full-width {
+      grid-column: 1 / -1;
+    }
+
+    textarea, input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-radius: 8px;
+      color: #e0e0e0;
+      font-size: 0.9rem;
+      resize: vertical;
+      margin-bottom: 12px;
+      font-family: inherit;
+    }
+
+    textarea:focus, input:focus {
+      outline: none;
+      border-color: #00d4aa;
+    }
+
+    button {
+      background: #00d4aa;
+      color: #0f1117;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: opacity 0.2s;
+    }
+
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .result-box {
+      margin-top: 16px;
+      padding: 16px;
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      line-height: 1.6;
+      min-height: 60px;
+      white-space: pre-wrap;
+      display: none;
+    }
+
+    .result-box.visible { display: block; }
+    .result-box.success { border-color: #00d4aa; }
+    .result-box.error   { border-color: #ff5555; color: #ff5555; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .stat-card {
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .stat-card .number {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #00d4aa;
+    }
+
+    .stat-card .label {
+      font-size: 0.75rem;
+      color: #888;
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid #0f1117;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .tag {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      margin: 3px;
+      background: #2a2d3a;
+      color: #aaa;
+    }
+
+    .tag.person { background: #1a3a4a; color: #00d4aa; }
+    .tag.org    { background: #2a1a3a; color: #aa88ff; }
+    .tag.loc    { background: #3a2a1a; color: #ffaa55; }
+
+    #entities-container { margin-top: 12px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Hallucination Killer</h1>
+  <p>GraphRAG — Knowledge Graph powered question answering</p>
+</header>
+
+<div class="grid">
+
+  <div class="card">
+    <h2>Ingest Text</h2>
+    <textarea id="ingest-text" rows="5" placeholder="Paste any text here to add it to the knowledge graph..."></textarea>
+    <input type="text" id="ingest-source" placeholder='Source name (e.g. "my_article")' />
+    <button onclick="ingestText()">Ingest Text</button>
+    <div class="result-box" id="ingest-text-result"></div>
+  </div>
+
+  <div class="card">
+    <h2>Ingest Wikipedia</h2>
+    <input type="text" id="wiki-topic" placeholder='Wikipedia topic (e.g. "Elon Musk")' />
+    <br/>
+    <button onclick="ingestWikipedia()">Fetch and Ingest</button>
+    <div class="result-box" id="ingest-wiki-result"></div>
+  </div>
+
+  <div class="card full-width">
+    <h2>Ask a Question</h2>
+    <input type="text" id="query-input"
+      placeholder='e.g. "Who founded OpenAI?" or "What is the relationship between Microsoft and OpenAI?"'
+      onkeydown="if(event.key==='Enter') query()" />
+    <button onclick="query()">Ask</button>
+    <div class="result-box" id="query-result"></div>
+  </div>
+
+  <div class="card">
+    <h2>Graph Statistics</h2>
+    <button onclick="loadStats()">Refresh Stats</button>
+    <div class="stats-grid" id="stats-container">
+      <div class="stat-card">
+        <div class="number" id="stat-persons">--</div>
+        <div class="label">Persons</div>
+      </div>
+      <div class="stat-card">
+        <div class="number" id="stat-orgs">--</div>
+        <div class="label">Organizations</div>
+      </div>
+      <div class="stat-card">
+        <div class="number" id="stat-locations">--</div>
+        <div class="label">Locations</div>
+      </div>
+      <div class="stat-card">
+        <div class="number" id="stat-rels">--</div>
+        <div class="label">Relationships</div>
+      </div>
+      <div class="stat-card">
+        <div class="number" id="stat-contradictions">--</div>
+        <div class="label">Contradictions</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Entities in Graph</h2>
+    <button onclick="loadEntities()">Load Entities</button>
+    <div id="entities-container"></div>
+  </div>
+
+</div>
+
+<script>
+  const API = 'http://localhost:8000';
+
+  function showResult(id, message, type='success') {
+    const el = document.getElementById(id);
+    el.textContent = message;
+    el.className = `result-box visible ${type}`;
+  }
+
+  function setLoading(btnEl, loading) {
+    if (loading) {
+      btnEl.disabled = true;
+      btnEl.innerHTML = '<span class="spinner"></span>Processing...';
+    } else {
+      btnEl.disabled = false;
+      btnEl.textContent = btnEl.getAttribute('data-label');
+    }
+  }
+
+  async function ingestText() {
+    const text = document.getElementById('ingest-text').value.trim();
+    const source = document.getElementById('ingest-source').value.trim() || 'manual_input';
+    const btn = event.target;
+    btn.setAttribute('data-label', 'Ingest Text');
+
+    if (!text) { showResult('ingest-text-result', 'Please enter some text.', 'error'); return; }
+
+    setLoading(btn, true);
+    try {
+      const res = await fetch(`${API}/ingest/text`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, source_name: source })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showResult('ingest-text-result', `Success: ${data.message}\nChunks processed: ${data.chunks_processed}`, 'success');
+        loadStats();
+      } else {
+        showResult('ingest-text-result', `Error: ${data.detail}`, 'error');
+      }
+    } catch(e) {
+      showResult('ingest-text-result', `Could not connect to API: ${e.message}`, 'error');
+    }
+    setLoading(btn, false);
+  }
+
+  async function ingestWikipedia() {
+    const topic = document.getElementById('wiki-topic').value.trim();
+    const btn = event.target;
+    btn.setAttribute('data-label', 'Fetch and Ingest');
+
+    if (!topic) { showResult('ingest-wiki-result', 'Please enter a topic.', 'error'); return; }
+
+    setLoading(btn, true);
+    try {
+      const res = await fetch(`${API}/ingest/wikipedia`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showResult('ingest-wiki-result', `Success: ${data.message}`, 'success');
+        loadStats();
+      } else {
+        showResult('ingest-wiki-result', `Error: ${data.detail}`, 'error');
+      }
+    } catch(e) {
+      showResult('ingest-wiki-result', `Could not connect to API: ${e.message}`, 'error');
+    }
+    setLoading(btn, false);
+  }
+
+  async function query() {
+    const question = document.getElementById('query-input').value.trim();
+    const btn = document.querySelector('button[onclick="query()"]');
+    btn.setAttribute('data-label', 'Ask');
+
+    if (!question) { showResult('query-result', 'Please enter a question.', 'error'); return; }
+
+    setLoading(btn, true);
+    showResult('query-result', 'Traversing knowledge graph...', 'success');
+    try {
+      const res = await fetch(`${API}/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showResult('query-result', data.answer, 'success');
+      } else {
+        showResult('query-result', `Error: ${data.detail}`, 'error');
+      }
+    } catch(e) {
+      showResult('query-result', `Could not connect to API: ${e.message}`, 'error');
+    }
+    setLoading(btn, false);
+  }
+
+  async function loadStats() {
+    try {
+      const res = await fetch(`${API}/graph/stats`);
+      const data = await res.json();
+
+      const counts = {};
+      data.nodes.forEach(n => { counts[n.type] = n.count; });
+
+      document.getElementById('stat-persons').textContent = counts['Person'] || 0;
+      document.getElementById('stat-orgs').textContent = counts['Organization'] || 0;
+      document.getElementById('stat-locations').textContent = counts['Location'] || 0;
+      document.getElementById('stat-rels').textContent = data.total_relationships;
+      document.getElementById('stat-contradictions').textContent = data.total_contradictions;
+    } catch(e) {
+      console.error('Stats error:', e);
+    }
+  }
+
+  async function loadEntities() {
+    const container = document.getElementById('entities-container');
+    container.innerHTML = '<p style="color:#888; margin-top:12px;">Loading...</p>';
+
+    try {
+      const res = await fetch(`${API}/graph/entities`);
+      const data = await res.json();
+
+      let html = '<div style="margin-top:12px;">';
+
+      if (data.persons.length) {
+        html += '<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.8rem;">PERSONS</span><br/>';
+        data.persons.forEach(p => {
+          html += `<span class="tag person">${p.name}</span>`;
+        });
+        html += '</div>';
+      }
+
+      if (data.organizations.length) {
+        html += '<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.8rem;">ORGANIZATIONS</span><br/>';
+        data.organizations.forEach(o => {
+          html += `<span class="tag org">${o.name}</span>`;
+        });
+        html += '</div>';
+      }
+
+      if (data.locations.length) {
+        html += '<div><span style="color:#888;font-size:0.8rem;">LOCATIONS</span><br/>';
+        data.locations.forEach(l => {
+          html += `<span class="tag loc">${l.name}</span>`;
+        });
+        html += '</div>';
+      }
+
+      html += '</div>';
+      container.innerHTML = html;
+    } catch(e) {
+      container.innerHTML = `<p style="color:#ff5555; margin-top:12px;">Error: ${e.message}</p>`;
+    }
+  }
+
+  window.onload = () => { loadStats(); };
+</script>
+
+</body>
+</html>
