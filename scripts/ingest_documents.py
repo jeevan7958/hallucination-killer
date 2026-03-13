@@ -142,3 +142,71 @@ def ingest_folder(folder_path: str):
 if __name__ == "__main__":
     ingest_folder(os.path.join(os.path.dirname(__file__), '..', 'data'))
 
+
+def ingest_document_text(text: str, source_name: str, driver):
+    """
+    Ingests raw text directly into the knowledge graph.
+    Used by Wikipedia and NewsAPI ingesters.
+    """
+    import uuid
+    from extractors.entity_extractor import extract_entities
+    from extractors.graph_writer import GraphWriter
+
+    doc_id = str(uuid.uuid4())
+    chunks = chunk_text(text)
+
+    print(f"  → {len(chunks)} chunks created from {source_name}")
+
+    # Write Document node
+    with driver.session() as session:
+        session.run("""
+            MERGE (d:Document {id: $id})
+            SET d.filename = $source,
+                d.chunk_count = $chunk_count
+        """, id=doc_id, source=source_name, chunk_count=len(chunks))
+
+    writer = GraphWriter()
+
+    for i, chunk_text_content in enumerate(chunks):
+        chunk_id = str(uuid.uuid4())
+
+        with driver.session() as session:
+            session.run("""
+                MERGE (c:Chunk {id: $chunk_id})
+                SET c.text = $text,
+                    c.document_id = $doc_id,
+                    c.chunk_index = $index
+                WITH c
+                MATCH (d:Document {id: $doc_id})
+                MERGE (d)-[:CONTAINS]->(c)
+            """, chunk_id=chunk_id, text=chunk_text_content,
+                 doc_id=doc_id, index=i)
+
+        print(f"  → Processing chunk {i+1}/{len(chunks)}...")
+
+        try:
+            result = extract_entities(chunk_text_content)
+            writer.write(result)
+
+            with driver.session() as session:
+                for person in result.persons:
+                    session.run("""
+                        MATCH (c:Chunk {id: $chunk_id})
+                        MATCH (p:Person {canonical_name: $name})
+                        MERGE (c)-[:MENTIONS]->(p)
+                    """, chunk_id=chunk_id, name=person.canonical_name)
+
+                for org in result.organizations:
+                    session.run("""
+                        MATCH (c:Chunk {id: $chunk_id})
+                        MATCH (o:Organization {canonical_name: $name})
+                        MERGE (c)-[:MENTIONS]->(o)
+                    """, chunk_id=chunk_id, name=org.canonical_name)
+
+        except Exception as e:
+            print(f"  [ERROR] Chunk {i+1} failed: {e}")
+            continue
+
+    writer.close()
+    print(f"  [DONE] {source_name} ingested.")
+
